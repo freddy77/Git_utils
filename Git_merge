@@ -122,12 +122,29 @@ class FinalCommit(Commit):
 
 		# FIXME FINISH, merge
 		ids = [ commit.commit_id for commit in parents ]
-		p = repo.command(['checkout', ids[0]])
+
+		p = repo.command(['checkout', self.commits[0].commit_id])
 		p.wait()
 		assert(p.returncode == 0)
-		p = repo.command(['merge', '-m', 'XXX'] + ids[1:])
+
+		p = repo.command(['write-tree'], PIPE)
+		tree = p.stdout.readline().rstrip('\n')
 		p.wait()
 		assert(p.returncode == 0)
+
+		args = [ 'commit-tree', '-m', 'xxx', tree ]
+		for commit in ids:
+			args.append('-p')
+			args.append(commit)
+		p = repo.command(args, PIPE)
+		commit = p.stdout.readline().rstrip('\n')
+		p.wait()
+		assert(p.returncode == 0)
+
+		self.commit_id = commit
+		assert(self.commit_id)
+
+		assert(repo.content_hash(commit) == self.content_hash)
 
 class Commits:
 	def __init__(self):
