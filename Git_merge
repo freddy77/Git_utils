@@ -218,3 +218,17 @@ repo.tag_id(commit.commit_id, branch_from + '_merged')
 commit = commits.get_final(to_id)
 commit.solve()
 repo.tag_id(commit.commit_id, branch_to + '_merged')
+
+# last check, there should be no 2 commit with same hash
+del commits
+commits = Commits()
+branch_from += '_merged'
+branch_to += '_merged'
+from_commits = list(commit_ids_to(branch_to, branch_from))
+to_commits = list(commit_ids_to(branch_from, branch_to))
+
+for commit in commits.content_hashes.values():
+	if len(commit.commits) > 1:
+		print commit.commits
+		assert(False)
+
