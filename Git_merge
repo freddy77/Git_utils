@@ -1,0 +1,203 @@
+#!/usr/bin/python
+
+import sys
+import hashlib
+from subprocess import Popen, PIPE
+
+def debug(msg):
+	print msg
+
+class Repo:
+	def __init__(self, git_dir):
+		self.git_dir = git_dir
+
+	def command(self, args, stdout=None, stderr=None, stdin=None):
+		return Popen(['git'] + args, cwd=self.git_dir, close_fds=True, stdout=stdout, stdin=stdin, stderr=stderr)
+
+	def content_hash(self, commit):
+		p = self.command(['ls-tree', '-r', '--full-tree', '--long', commit], PIPE)
+		h = hashlib.sha512()
+		for line in sorted(p.stdout):
+			h.update(line)
+		p.wait()
+		assert(p.returncode == 0)
+		return h.digest().encode('hex')
+
+	def tag_id(self, commit, tag_name):
+		p = self.command(['tag', tag_name, commit])
+		p.wait()
+		assert(p.returncode == 0)
+
+	def get_commit_id(self, ref):
+		p = self.command(['rev-parse', ref], PIPE)
+		commit = p.stdout.readline().rstrip('\n')
+		p.wait()
+		if p.returncode != 0:
+			return None
+		return commit
+
+	def get_branch_id(self, branch):
+		return self.get_commit_id('refs/heads/%s' % branch)
+
+class Commit:
+	def __init__(self, commit_id, parents):
+		self.commit_id = commit_id
+		self.content_hash = repo.content_hash(commit_id)
+		self.parents = parents
+
+	def __repr__(self):
+		return "'%s-%s'" % (self.commit_id, self.content_hash)
+
+class FinalCommit(Commit):
+	def __init__(self, commit):
+		# here we don't call super __init__ !!
+		self.commit_id = None
+		self.content_hash = commit.content_hash
+		self.parents = []
+		self.commits = [commit]
+
+	def add(self, commit):
+		self.commits.append(commit)
+
+	def __repr__(self):
+		return 'content %s.. %s' % (self.content_hash[:10], self.commit_id)
+
+	def dump(self):
+		debug('%s: status' % self)
+		for commit in self.commits:
+			debug('\tcommit %s %s' % (commit.commit_id, commit.final))
+		for commit in self.parents:
+			debug('\tparent %s' % (commit))
+		debug('')
+
+	# this is the main part, generate commits
+	def solve(self):
+		if self.commit_id is not None:
+			debug('%s: already solved' % self)
+			return
+
+		# compute parents
+  		# make sure all parent hash have a new commit id
+		parents = {}
+		for commit in self.commits:
+			for parent in commit.parents:
+				assert(isinstance(parent.final, FinalCommit))
+				parents[parent.final] = True
+		parents = parents.keys()
+		for parent in parents:
+			parent.solve()
+			assert(parent.commit_id)
+		self.parents = parents
+
+		# this is a root commit
+		if len(parents) == 0:
+			self.commit_id = self.commits[0].commit_id
+			return
+
+		self.dump()
+
+		# FIXME FINISH
+		if len(parents) != 1:
+			print parents
+
+		# simple case, just one parent
+		if len(parents) == 1:
+			parent = parents[0]
+			# can we reuse an already existing id ?
+			for commit in self.commits:
+				if parent.commit_id == commit.parents[0].commit_id:
+					self.commit_id = commit.commit_id
+					debug('%s: not need to be merged' % self)
+					# TODO merge comments, authors, dates
+					return
+			# pick up one, they are all the same...
+			# TODO beside comments, date and so on..
+			commit = self.commits[0].commit_id
+			p = repo.command(['rebase', '--onto', parents[0].commit_id, '%s^' % commit, commit])
+			p.wait()
+			assert(p.returncode == 0)
+			self.commit_id = repo.get_commit_id('HEAD')
+			assert(self.commit_id)
+			return
+
+		# FIXME FINISH, merge
+		ids = [ commit.commit_id for commit in parents ]
+		p = repo.command(['checkout', ids[0]])
+		p.wait()
+		assert(p.returncode == 0)
+		p = repo.command(['merge', '-m', 'XXX'] + ids[1:])
+		p.wait()
+		assert(p.returncode == 0)
+
+class Commits:
+	def __init__(self):
+		self.commits = {}
+		self.content_hashes = {}
+
+	def add(self, commit_id, parents):
+		parents = [self.add(commit, []) for commit in parents]
+		if commit_id in self.commits:
+			commit = self.commits[commit_id]
+			commit.parents = parents
+		else:
+			commit = Commit(commit_id, parents)
+			self.commits[commit_id] = commit
+			h = commit.content_hash
+			if h in self.content_hashes:
+				final = self.content_hashes[h]
+				final.add(commit)
+			else:
+				final = FinalCommit(commit)
+				self.content_hashes[h] = final
+			commit.final = final
+		return commit
+
+	def get_final(self, commit_id):
+		assert(commit_id in self.commits)
+		commit = self.commits[commit_id]
+		h = commit.content_hash
+		assert(h in self.content_hashes)
+		return self.content_hashes[h]
+
+def commit_ids_to(branch_from, branch_to):
+	p = repo.command(['log', '--pretty=format:%H %P', '%s..%s' % (branch_from, branch_to)], PIPE)
+	for commit in p.stdout:
+		commit_ids = commit.rstrip('\n').split(' ')
+		yield commits.add(commit_ids[0], commit_ids[1:])
+	p.wait()
+	assert(p.returncode == 0)
+
+def check_branch_exists(name):
+	assert(repo.get_branch_id(name) is not None)
+
+commits = Commits()
+
+#repo = Repo('/home/freddy/work/xxx')
+#branch_from = 'master'
+#branch_to = 'xxx'
+repo = Repo('/home/freddy/work/spice-server')
+branch_from = 'refactory'
+branch_to = 'marc_refactory'
+
+# check all branches specified exists
+check_branch_exists(branch_from)
+check_branch_exists(branch_to)
+
+from_id = repo.get_branch_id(branch_from)
+to_id = repo.get_branch_id(branch_to)
+
+# extract all commit not in common
+#p = Popen(['git', 'log', '--pretty=format:%H', '%s..%s' % (branch_to, branch_from)], cwd=git_dir, close_fds=True, stdout=PIPE)
+#from_commits = [ commit.rstrip('\n') for commit in p.stdout ]
+#p.wait()
+#assert(p.returncode == 0)
+from_commits = list(commit_ids_to(branch_to, branch_from))
+to_commits = list(commit_ids_to(branch_from, branch_to))
+
+commit = commits.get_final(from_id)
+commit.solve()
+repo.tag_id(commit.commit_id, branch_from + '_merged')
+
+commit = commits.get_final(to_id)
+commit.solve()
+repo.tag_id(commit.commit_id, branch_to + '_merged')
