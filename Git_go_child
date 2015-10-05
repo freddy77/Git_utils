@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+
+# get last two commit before this
+IFS="
+" COMMITS=($(git log --oneline "HEAD..$1" --pretty='format:%H' | tail -2))
+
+PREV2=${COMMITS[0]}
+PREV1=${COMMITS[1]}
+
+# if we have none we already are at the right commit
+if [ "$PREV2" = "" ]; then
+	echo Already at given commit
+	exit 1
+fi
+
+# just just have the specified commit/branch to go
+if [ "$PREV1" = "" ]; then
+	PREV1="$1"
+fi
+
+exec git checkout "$PREV1"
+exit 1
