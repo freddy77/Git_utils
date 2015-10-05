@@ -1,0 +1,18 @@
+Merge two branches keeping all commits
+
+- extract all commit not in common
+- compute for each commit an hash of content
+  (filenames + data hash + permissions)
+- class for each commit
+  - original hash
+  - content hash
+  - parents
+- group all content hashes
+- for each content hash
+  - make sure all parent hash have a new commit id
+  - if parents have all old commit id equal to old
+    update new commit id with old and do nothing
+    beside merging possible comments, author, date
+  - if not above we must create a new commit,
+    do merge and force content to be the same
+    (as a safe we should check it)
