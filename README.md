@@ -24,3 +24,28 @@ $ git checkout origin/master # move to initial branch
 $ while Git_go_child master && make clean && make; do echo ok; done
 ```
 
+## Git_merge
+
+The idea of this utility is to manage rebased branches removing commit
+with the same **exact** content.
+
+Syntax: `Git_merge` *branch_old* *branch_new*
+
+The script try to recreate the tree of commits merging commits with same
+content and reuse available commits if possible. The script will prefer
+to reuse commits in the *branch_new* as should be the most updated.
+
+The script wants to be robust and instead of changing your branches add
+two new tags named *branch_old*`_merged` *branch_new*`_merged. This to
+make sure you don't lose your work.
+
+The status is actually quite experimental and have some todo/problems:
+
+* merged commit are created with a xxx comment. Script should keep
+  last comment but former author and date;
+* there is no way to disable debugging;
+* the code is quite messy and the classes are not defined properly.
+
+Although experimental I use it to make clear where changes happened on
+the two branches and manually and incrementally remove the differences.
+
