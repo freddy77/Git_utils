@@ -25,7 +25,7 @@ class Repo:
 		for line in sorted(p.stdout):
 			h.update(line)
 		p.wait()
-		assert(p.returncode == 0)
+		assert p.returncode == 0, "Error getting commit content hash command returned %d" % p.returncode
 		return h.digest().encode('hex')
 
 	def tag_id(self, commit, tag_name):
@@ -190,7 +190,7 @@ def commit_ids_to(branch_from, branch_to):
 	assert(p.returncode == 0)
 
 def check_branch_exists(name):
-	assert(repo.get_branch_id(name) is not None)
+	assert repo.get_branch_id(name) is not None, "Branch '%s' not found" % name
 
 def usage():
 	print """Usage: Git_merge [OPTION]... <branch_old> <branch_new>
@@ -263,5 +263,5 @@ to_commits = list(commit_ids_to(branch_from, branch_to))
 for commit in commits.content_hashes.values():
 	if len(commit.commits) > 1:
 		print commit.commits
-		assert(False)
+		assert False, "Found duplicate commit in output branches, something went wrong"
 
