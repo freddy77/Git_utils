@@ -6,6 +6,12 @@ import getopt
 import hashlib
 from subprocess import Popen, PIPE
 
+try:
+	from subprocess import DEVNULL
+except ImportError:
+	import os
+	DEVNULL = open(os.devnull, 'wb')
+
 def debug(msg):
 	pass
 
@@ -34,7 +40,7 @@ class Repo:
 		assert(p.returncode == 0)
 
 	def get_commit_id(self, ref):
-		p = self.command(['rev-parse', ref], PIPE)
+		p = self.command(['rev-parse', ref, '--'], PIPE, DEVNULL)
 		commit = p.stdout.readline().rstrip('\n')
 		p.wait()
 		if p.returncode != 0:
