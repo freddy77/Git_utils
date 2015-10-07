@@ -1,10 +1,15 @@
 #!/usr/bin/python
 
 import sys
+import os
+import getopt
 import hashlib
 from subprocess import Popen, PIPE
 
 def debug(msg):
+	pass
+
+def debug_enabled(msg):
 	print msg
 
 class Repo:
@@ -187,14 +192,42 @@ def commit_ids_to(branch_from, branch_to):
 def check_branch_exists(name):
 	assert(repo.get_branch_id(name) is not None)
 
+def usage():
+	print """Usage: Git_merge [OPTION]... <branch_old> <branch_new>
+Remove duplicate content commits from the two branches
+
+  --git-dir=DIR  specify git directory
+  -d             enable debug output
+  -h, --help     display this output and exit
+"""
+
 commits = Commits()
 
-#repo = Repo('/home/freddy/work/xxx')
-#branch_from = 'master'
-#branch_to = 'xxx'
-repo = Repo('/home/freddy/work/spice-server')
-branch_from = 'refactory'
-branch_to = 'marc_refactory'
+git_dir = None
+try:
+	opts, args = getopt.getopt(sys.argv[1:], "hd", ["help", "git-dir="])
+except getopt.GetoptError:
+	usage()
+	sys.exit(2)
+
+for opt, arg in opts:
+	if opt in ("-h", "--help"):
+		usage()
+		sys.exit()
+	elif opt == '-d':
+		debug = debug_enabled
+	elif opt == '--git-dir':
+		git_dir = arg
+
+if len(args) < 2:
+	usage()
+	sys.exit(1)
+
+if git_dir is None:
+	git_dir = os.getcwd()
+repo = Repo(git_dir)
+branch_from = args[0]
+branch_to = args[1]
 
 # check all branches specified exists
 check_branch_exists(branch_from)
