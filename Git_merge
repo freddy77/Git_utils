@@ -18,7 +18,9 @@ def debug_enabled(msg):
 	print msg
 
 class Repo:
-	def __init__(self, git_dir):
+	def __init__(self, git_dir=None):
+		if git_dir is None:
+			git_dir = os.getcwd()
 		self.git_dir = git_dir
 
 	def command(self, args, stdout=None, stderr=None, stdin=None):
@@ -228,8 +230,6 @@ if len(args) < 2:
 	usage()
 	sys.exit(1)
 
-if git_dir is None:
-	git_dir = os.getcwd()
 repo = Repo(git_dir)
 branch_from = args[0]
 branch_to = args[1]
