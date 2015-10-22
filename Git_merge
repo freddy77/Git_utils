@@ -176,13 +176,22 @@ class FinalCommit(Commit):
 		p.wait()
 		assert(p.returncode == 0)
 
-		args = [ 'commit-tree', '-m', 'xxx', tree ]
-		for commit in ids:
-			args.append('-p')
-			args.append(commit)
-		p = repo.command(args, PIPE)
-		commit = p.stdout.readline().rstrip('\n')
-		p.wait()
+		# easy case, we have just a commit, take all infos
+		env = os.environ.copy()
+		first = self.commits[0]
+		last = self.commits[-1]
+		env['GIT_AUTHOR_NAME']  = last.author.name
+		env['GIT_AUTHOR_EMAIL'] = last.author.email
+		env['GIT_AUTHOR_DATE']  = last.author.date
+		env['GIT_COMMITTER_NAME']  = first.committer.name
+		env['GIT_COMMITTER_EMAIL'] = first.committer.email
+		env['GIT_COMMITTER_DATE']  = first.committer.date
+		comment = first.comment
+
+		args =  [ 'commit-tree', tree ]
+		args += [ arg for commit in ids for arg in ('-p', commit) ]
+		p = repo.command(args, PIPE, stdin=PIPE, env=env)
+		commit = (p.communicate(comment))[0].rstrip('\n')
 		assert(p.returncode == 0)
 
 		self.commit_id = commit

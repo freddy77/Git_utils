@@ -39,12 +39,10 @@ The script wants to be robust and instead of changing your branches add
 two new tags named *branch_old*`_merged` *branch_new*`_merged. This to
 make sure you don't lose your work.
 
-The status is quite experimental and have some todo/problems:
+Currently todo/problems:
 
-* merged commit are created with a xxx comment. Script should keep
-  last comment but former author and date;
 * the code is quite messy and the classes are not defined properly.
 
-Although experimental I use it to make clear where changes happened on
-the two branches and manually and incrementally remove the differences.
+I use it to make clear where changes happened on the two branches and
+manually and incrementally remove the differences.
 
