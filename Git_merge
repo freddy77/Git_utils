@@ -9,7 +9,6 @@ from subprocess import Popen, PIPE
 try:
 	from subprocess import DEVNULL
 except ImportError:
-	import os
 	DEVNULL = open(os.devnull, 'wb')
 
 def debug(msg):
@@ -243,10 +242,6 @@ from_id = repo.get_branch_id(branch_from)
 to_id = repo.get_branch_id(branch_to)
 
 # extract all commit not in common
-#p = Popen(['git', 'log', '--pretty=format:%H', '%s..%s' % (branch_to, branch_from)], cwd=git_dir, close_fds=True, stdout=PIPE)
-#from_commits = [ commit.rstrip('\n') for commit in p.stdout ]
-#p.wait()
-#assert(p.returncode == 0)
 from_commits = list(commit_ids_to(branch_to, branch_from))
 to_commits = list(commit_ids_to(branch_from, branch_to))
 
