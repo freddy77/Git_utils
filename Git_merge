@@ -23,8 +23,8 @@ class Repo:
 			git_dir = os.getcwd()
 		self.git_dir = git_dir
 
-	def command(self, args, stdout=None, stderr=None, stdin=None):
-		return Popen(['git'] + args, cwd=self.git_dir, close_fds=True, stdout=stdout, stdin=stdin, stderr=stderr)
+	def command(self, args, stdout=None, stderr=None, stdin=None, env=None):
+		return Popen(['git'] + args, cwd=self.git_dir, close_fds=True, stdout=stdout, stdin=stdin, stderr=stderr, env=env)
 
 	def content_hash(self, commit):
 		p = self.command(['ls-tree', '-r', '--full-tree', '--long', commit], PIPE)
