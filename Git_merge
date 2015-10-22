@@ -68,7 +68,7 @@ class FinalCommit(Commit):
 		self.parents = []
 		self.commits = [commit]
 
-	def add(self, commit):
+	def add_commit(self, commit):
 		self.commits.append(commit)
 
 	def __repr__(self):
@@ -174,7 +174,7 @@ class Commits:
 			h = commit.content_hash
 			if h in self.content_hashes:
 				final = self.content_hashes[h]
-				final.add(commit)
+				final.add_commit(commit)
 			else:
 				final = FinalCommit(commit)
 				self.content_hashes[h] = final
