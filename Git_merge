@@ -51,11 +51,43 @@ class Repo:
 	def get_branch_id(self, branch):
 		return self.get_commit_id('refs/heads/%s' % branch)
 
+class CommitUser:
+	def __init__(self, name, email, date):
+		self.name = name
+		self.email = email
+		self.date = date
+
 class Commit:
 	def __init__(self, commit_id, parents):
 		self.commit_id = commit_id
-		self.content_hash = repo.content_hash(commit_id)
 		self.parents = parents
+
+	def __read_user(self, f):
+		name = f.readline().rstrip('\n')
+		email = f.readline().rstrip('\n')
+		date = f.readline().rstrip('\n')
+		return CommitUser(name, email, date)
+
+	def __cache_commit_data(self):
+		p = repo.command(['log', '--pretty=format:%an\n%ae\n%aI\n%cn\n%ce\n%cI\n%H\n%B', '%s^!' % self.commit_id, '--'], PIPE)
+		self.author = self.__read_user(p.stdout)
+		self.committer = self.__read_user(p.stdout)
+		h = p.stdout.readline().rstrip('\n')
+		self.comment = p.stdout.read()
+		assert h == self.commit_id, "Safety check failed, hash readed mismatch %s != %s" % (h , self.commit_id)
+		p.wait()
+		assert(p.returncode == 0)
+
+	def __getattr__(self, name):
+		if name == 'content_hash':
+			val = repo.content_hash(self.commit_id)
+			self.__dict__[name] = val
+			return val
+		elif name in {'author', 'committer', 'comment'}:
+			self.__cache_commit_data()
+			return self.__dict__[name]
+		else:
+			raise AttributeError('Attribute %s not supported' % name)
 
 	def __repr__(self):
 		return "'%s-%s'" % (self.commit_id, self.content_hash)
