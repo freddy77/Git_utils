@@ -1,10 +1,16 @@
 #!/bin/bash
 
 set -e
+failed=''
 for br in $(git branch --contains 591463ae13f269d85bf0e5b3494961bf0b6b78b0 | grep '^. ' | sed 's/^..//'); do
 	test "$br" = "master" && continue
 	git checkout "$br"
 	if ! git rebase origin/master; then
+		failed="$failed $br"
 		git rebase --abort
 	fi
 done
+if [ "$failed" != "" ]; then
+	echo "Failed branches$failed" >&2
+	exit 1
+fi
