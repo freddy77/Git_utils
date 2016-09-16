@@ -1,18 +1,112 @@
 #!/bin/bash
 
+# git remove where to push our branches
+REMOTE_PUSH=fdo
+
 set -e
-failed=''
-for br in $(git branch --contains a4579c5a9737d6dcdcb7416a4279c6683d65f9e2 | grep '^. ' | sed 's/^..//' | grep -v '^Branch-1_00'); do
-	git checkout "$br"
-	if ! git rebase origin/master; then
-		failed="$failed $br"
-		git rebase --abort
-	fi
-done
-set +e
-git checkout pool && git push -f
-git checkout name_list
-if [ "$failed" != "" ]; then
-	echo "Failed branches$failed" >&2
-	exit 1
+
+get_id() {
+    git rev-parse --revs-only "refs/$1" --
+}
+
+COMPILE=${COMPILE:=no}
+if [ $COMPILE != yes -a $COMPILE != full ]; then
+    COMPILE=no
 fi
+failed=''
+failed_compile=''
+processed=''
+
+try_compile() {
+    local last_failed=''
+    if test "$COMPILE" = "no"; then
+        return
+    fi
+    echo "processed:$processed"
+    echo "failed:$failed_compile"
+    echo "compiling $branch ..."
+    if test $COMPILE = full; then
+        for commit in $(git rev-list origin/master..$branch --reverse); do
+            echo "checking branch $branch commit $commit"
+            git checkout $commit &> /dev/null
+            if ! make -j3 &> compile_err_$branch.txt; then
+                failed_compile+="
+    $branch:$commit"
+                last_failed='+'
+            else
+                rm -f compile_err_$branch.txt
+                last_failed=''
+            fi
+        done
+        failed_compile+="$last_failed"
+    else
+        if ! make -j3 &> compile_err_$branch.txt; then
+            failed_compile+="
+    $branch"
+        else
+            rm -f compile_err_$branch.txt
+        fi
+    fi
+}
+
+all_branches() {
+    git show-ref --heads | perl -ne 'print $1 if m, refs/heads/(.*)$,s'
+}
+
+branch_need_push() {
+    local branch="$1" remote
+    remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
+        if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
+            return 0
+        fi
+    }
+    return 1
+}
+
+for branch in $(git branch --contains 3cc00f12075cc8dbe731a9cde20afdd2333bc303 --no-color | sed 's,^..,,' | grep -v '^aaa')
+do
+    # exclude invalid branches (ie when we checked out a commit id)
+    if ! get_id "heads/$branch" &> /dev/null; then
+        continue
+    fi
+
+    # check if already in sync (so no need to checkout)
+    if ! branch_need_push "$branch" && test "$COMPILE" = no -a "$(git rev-list "heads/$branch..origin/master" | wc -l)" = 0; then
+        processed+=" $branch"
+        continue
+    fi
+
+    # try to rebase on top of master
+    git checkout $branch
+    if git rebase origin/master; then
+        # if there is a remote on the git remote specified push to it
+        if branch_need_push "$branch"; then
+            echo "Pushing branch $branch ..."
+            git push -f
+        fi
+        try_compile
+    else
+        failed+=" $branch"
+        git rebase --abort
+    fi
+    processed+=" $branch"
+done
+
+if [ "$failed_compile" != "" ]; then
+    echo "FAILED TO COMPILE:$failed_compile"
+fi
+
+if [ "$failed" != "" ]; then
+    echo "FAILED BRANCHES:$failed"
+    echo "Expected: xxx cpp cleanup"
+    exit 1
+else
+    echo "All branches are in sync"
+fi
+
+exit 0
+
+# NOTES
+Git_merge --safe refactory jj
+Git_merge --safe glz2 encoders_separation
+
