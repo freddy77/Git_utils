@@ -64,7 +64,8 @@ branch_need_push() {
     return 1
 }
 
-for branch in $(git branch --contains 3cc00f12075cc8dbe731a9cde20afdd2333bc303 --no-color | sed 's,^..,,' | grep -v '^aaa')
+for branch in $(git branch --contains 3cc00f12075cc8dbe731a9cde20afdd2333bc303 --no-color | \
+                sed 's,^..,,' | grep -v '^aaa\|^git-series/')
 do
     # exclude invalid branches (ie when we checked out a commit id)
     if ! get_id "heads/$branch" &> /dev/null; then
