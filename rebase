@@ -98,6 +98,10 @@ if [ "$failed_compile" != "" ]; then
     echo "FAILED TO COMPILE:$failed_compile"
 fi
 
+Git_merge --safe cork network_improves
+Git_merge --safe cork virgl-spice
+Git_merge --safe virgl-spice virgl-spice-save
+
 if [ "$failed" != "" ]; then
     echo "FAILED BRANCHES:$failed"
     echo "Expected: xxx cpp cleanup"
