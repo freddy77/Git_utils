@@ -1,16 +1,48 @@
 #!/bin/bash
 
+error() {
+    echo "$*" >&2
+    exit 1
+}
+
 # git remove where to push our branches
-REMOTE_PUSH=fdo
-REBASE_TO=origin/master
+REMOTE_PUSH="$(git config rebasepp.remote)"
+FILTER="$(git config rebasepp.filter)"
+CUSTOM_SCRIPT="$(git config rebasepp.custom-script)"
 
 set -e
+REBASE_TO="$(git config rebasepp.rebase-to)" || error "rebase-to not configured"
+START_COMMIT="$(git config rebasepp.start-commit)" || error "start-commit not configured"
+
+export REBASE_TO
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ -n "$FILTER" ]; then
+    filter() {
+        exec grep -v "$FILTER"
+    }
+else
+    filter() {
+        cat
+    }
+fi
+
+post_process() {
+    :
+}
+
+if [ -n "$CUSTOM_SCRIPT" ]; then
+    test -r "$CUSTOM_SCRIPT" || error "Cannot read $CUSTOM_SCRIPT"
+    source "$CUSTOM_SCRIPT"
+fi
 
 get_id() {
     git rev-parse --revs-only "refs/$1" --
 }
 
 COMPILE=${COMPILE:=no}
+export COMPILE
 if [ $COMPILE != yes -a $COMPILE != full ]; then
     COMPILE=no
 fi
@@ -56,16 +88,18 @@ all_branches() {
 
 branch_need_push() {
     local branch="$1" remote
-    remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
-        if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
-            return 0
-        fi
-    }
+    if [ -n "$REMOTE_PUSH" ]; then
+        remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
+            if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
+                return 0
+            fi
+        }
+    fi
     return 1
 }
 
-for branch in $(git branch --contains 3cc00f12075cc8dbe731a9cde20afdd2333bc303 --no-color | \
-                sed 's,^..,,' | grep -v '^aaa\|^git-series/')
+for branch in $(git branch --contains "$START_COMMIT" --no-color | \
+                sed 's,^..,,' | filter | LANG=C sort)
 do
     # exclude invalid branches (ie when we checked out a commit id)
     if ! get_id "heads/$branch" &> /dev/null; then
@@ -79,8 +113,9 @@ do
     fi
 
     # try to rebase on top of specified branch
-    git checkout $branch
+    git checkout "$branch"
     if git rebase ${REBASE_TO}; then
+        post_process "$branch"
         # if there is a remote on the git remote specified push to it
         if branch_need_push "$branch"; then
             echo "Pushing branch $branch ..."
@@ -98,21 +133,9 @@ if [ "$failed_compile" != "" ]; then
     echo "FAILED TO COMPILE:$failed_compile"
 fi
 
-Git_merge --safe cork network_improves
-Git_merge --safe cork virgl-spice
-Git_merge --safe virgl-spice virgl-spice-save
-
 if [ "$failed" != "" ]; then
     echo "FAILED BRANCHES:$failed"
-    echo "Expected: xxx cpp cleanup"
     exit 1
 else
     echo "All branches are in sync"
 fi
-
-exit 0
-
-# NOTES
-Git_merge --safe refactory jj
-Git_merge --safe glz2 encoders_separation
-
