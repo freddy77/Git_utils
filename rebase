@@ -1,5 +1,39 @@
 #!/bin/bash
 
+# script to help rebase trees of branches
+# Git configuration
+# -----------------
+#   rebasepp.start-commit
+#     Required.
+#     Attemps to rebase all branches child of this commit.
+#   rebasepp.rebase-to
+#     Required.
+#     Rebase the branches on this commit (usually origin/master)
+#   rebasepp.remote
+#     Optional.
+#     Attempt to push to this remote if the upstream is set to it
+#   rebasepp.filter
+#     Optional.
+#     "grep -v" filter applied to the branch names. Allows to
+#     exclude some branches.
+#   rebasepp.custom-script
+#     Optional.
+#     Script to source for customizations.
+#
+# Custom script
+# -------------
+# The script is sourced (shell). The current directory will be
+# the git root.
+# Environment passes
+#   COMPILE
+#     yes/no/full
+#   REBASE_TO
+#     rebasepp.rebase-to option
+#
+# Currently you can define a post_process function that will be called
+# if the rebase is successful.
+# The name of the branch will be passed as first argument.
+
 error() {
     echo "$*" >&2
     exit 1
