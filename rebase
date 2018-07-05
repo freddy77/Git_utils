@@ -129,13 +129,26 @@ all_branches() {
     git show-ref --heads | perl -ne 'print $1 if m, refs/heads/(.*)$,s'
 }
 
+# get remote based on branch
+branch_get_remote() {
+    local branch="$1"
+    {
+        git config "branch.${branch}.pushRemote" || \
+        git config "remote.pushDefault" || \
+        git config "branch.${branch}.remote";
+    } 2> /dev/null
+}
+
 branch_need_push() {
     local branch="$1" remote
     if [ -n "$REMOTE_PUSH" ]; then
-        remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
-            if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
-                return 0
-            fi
+        # check that the upstream for this branch is our specified remote
+        remote=$(branch_get_remote "$branch") && [ "$REMOTE_PUSH" = "$remote" ] && {
+            remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
+                if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
+                    return 0
+                fi
+            }
         }
     fi
     return 1
