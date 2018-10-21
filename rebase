@@ -77,9 +77,13 @@ get_id() {
 
 COMPILE=${COMPILE:=no}
 export COMPILE
-if [ $COMPILE != yes -a $COMPILE != full ]; then
-    COMPILE=no
-fi
+case $COMPILE in
+yes | full | no )
+	;;
+* )
+	error "$COMPILE option not supported"
+	;;
+esac
 failed=''
 failed_compile=''
 processed=''
