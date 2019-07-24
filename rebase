@@ -90,6 +90,10 @@ processed=''
 
 declare -A commits
 
+build_it() {
+    make -j
+}
+
 try_compile() {
     local last_failed=''
     if test "$COMPILE" = "no"; then
@@ -103,7 +107,7 @@ try_compile() {
             echo "checking branch $branch commit $commit"
             git checkout $commit &> /dev/null
             if [ "${commits[$commit]}" = "" ]; then
-                if ! make -j &> compile_err_$branch.txt; then
+                if ! build_it &> compile_err_$branch.txt; then
                     commits[$commit]='no'
                 else
                     commits[$commit]='yes'
@@ -120,7 +124,7 @@ try_compile() {
         done
         failed_compile+="$last_failed"
     else
-        if ! make -j &> compile_err_$branch.txt; then
+        if ! build_it &> compile_err_$branch.txt; then
             failed_compile+="
     $branch"
         else
