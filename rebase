@@ -107,9 +107,11 @@ try_compile() {
             echo "checking branch $branch commit $commit"
             git checkout $commit &> /dev/null
             if [ "${commits[$commit]}" = "" ]; then
-                if ! build_it &> compile_err_$branch.txt; then
+                if ! build_it &> compile_errtmp.txt; then
+                    mv -f compile_errtmp.txt compile_err_$branch.txt
                     commits[$commit]='no'
                 else
+                    rm -f compile_errtmp.txt
                     commits[$commit]='yes'
                 fi
             fi
@@ -118,17 +120,17 @@ try_compile() {
     $branch:$commit"
                 last_failed='+'
             else
-                rm -f compile_err_$branch.txt
                 last_failed=''
             fi
         done
         failed_compile+="$last_failed"
     else
-        if ! build_it &> compile_err_$branch.txt; then
+        if ! build_it &> compile_errtmp.txt; then
+            mv -f compile_errtmp.txt compile_err_$branch.txt
             failed_compile+="
     $branch"
         else
-            rm -f compile_err_$branch.txt
+            rm -f compile_errtmp.txt
         fi
     fi
 }
