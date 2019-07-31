@@ -30,8 +30,11 @@
 #   REBASE_TO
 #     rebasepp.rebase-to option
 #
-# Currently you can define a post_process function that will be called
+# You can define a post_process function that will be called
 # if the rebase is successful.
+# You can define a build_it function that will be called to build,
+# this function is executed in a different process so any directory
+# changes or other won't affect caller environment
 # The name of the branch will be passed as first argument.
 
 error() {
@@ -62,8 +65,10 @@ else
     }
 fi
 
-post_process() {
-    :
+post_process() { :; }
+
+build_it() {
+    make -j5
 }
 
 if [ -n "$CUSTOM_SCRIPT" ]; then
@@ -90,10 +95,6 @@ processed=''
 
 declare -A commits
 
-build_it() {
-    make -j
-}
-
 try_compile() {
     local last_failed=''
     if test "$COMPILE" = "no"; then
@@ -107,7 +108,7 @@ try_compile() {
             echo "checking branch $branch commit $commit"
             git checkout $commit &> /dev/null
             if [ "${commits[$commit]}" = "" ]; then
-                if ! build_it &> compile_errtmp.txt; then
+                if ! (build_it) &> compile_errtmp.txt; then
                     mv -f compile_errtmp.txt compile_err_$branch.txt
                     commits[$commit]='no'
                 else
@@ -125,7 +126,7 @@ try_compile() {
         done
         failed_compile+="$last_failed"
     else
-        if ! build_it &> compile_errtmp.txt; then
+        if ! (build_it) &> compile_errtmp.txt; then
             mv -f compile_errtmp.txt compile_err_$branch.txt
             failed_compile+="
     $branch"
