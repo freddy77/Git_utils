@@ -117,8 +117,9 @@ try_compile() {
                 fi
             fi
             if [ "${commits[$commit]}" = "no" ]; then
+                subject="$(git log -1 --pretty=%s $commit)"
                 failed_compile+="
-    $branch:$commit"
+    $branch:$commit $subject"
                 last_failed='+'
             else
                 last_failed=''
