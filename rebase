@@ -11,7 +11,8 @@
 #     Rebase the branches on this commit (usually origin/master)
 #   rebasepp.remote
 #     Optional.
-#     Attempt to push to this remote if the upstream is set to it
+#     Attempt to push to this remote if the upstream is set to it.
+#     Can be a list separated by "|" (shell "case" is used)
 #   rebasepp.filter
 #     Optional.
 #     "grep -v" filter applied to the branch names. Allows to
@@ -74,6 +75,11 @@ build_it() {
 if [ -n "$CUSTOM_SCRIPT" ]; then
     test -r "$CUSTOM_SCRIPT" || error "Cannot read $CUSTOM_SCRIPT"
     source "$CUSTOM_SCRIPT"
+fi
+
+remote_to_push() { return 1; }
+if [ -n "$REMOTE_PUSH" ]; then
+    eval "remote_to_push() { case \"\$1\" in $REMOTE_PUSH) return 0 ;; esac; return 1; }"
 fi
 
 get_id() {
@@ -155,8 +161,8 @@ branch_need_push() {
     local branch="$1" remote
     if [ -n "$REMOTE_PUSH" ]; then
         # check that the upstream for this branch is our specified remote
-        remote=$(branch_get_remote "$branch") && [ "$REMOTE_PUSH" = "$remote" ] && {
-            remote=$(get_id "remotes/$REMOTE_PUSH/$branch" 2> /dev/null) && {
+        remote=$(branch_get_remote "$branch") && remote_to_push "$remote" && {
+            remote=$(get_id "remotes/$remote/$branch" 2> /dev/null) && {
                 if [ "$remote" != "" -a "$(get_id heads/$branch)" != "$remote" ]; then
                     return 0
                 fi
