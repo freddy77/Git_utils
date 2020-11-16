@@ -2,13 +2,16 @@
 
 set -e
 failed=''
-for br in $(git branch --contains 591463ae13f269d85bf0e5b3494961bf0b6b78b0 | grep '^. ' | sed 's/^..//'); do
+for br in $(git branch --contains a4579c5a9737d6dcdcb7416a4279c6683d65f9e2 | grep '^. ' | sed 's/^..//' | grep -v '^Branch-1_00'); do
 	git checkout "$br"
 	if ! git rebase origin/master; then
 		failed="$failed $br"
 		git rebase --abort
 	fi
 done
+set +e
+git checkout pool && git push -f
+git checkout name_list
 if [ "$failed" != "" ]; then
 	echo "Failed branches$failed" >&2
 	exit 1
