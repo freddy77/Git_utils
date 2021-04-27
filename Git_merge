@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python3
 
 import sys
 import os
@@ -15,7 +15,7 @@ def debug(msg):
 	pass
 
 def debug_enabled(msg):
-	print msg
+	print(msg)
 
 class Repo:
 	def __init__(self, git_dir=None):
@@ -33,7 +33,7 @@ class Repo:
 			h.update(line)
 		p.wait()
 		assert p.returncode == 0, "Error getting commit content hash command returned %d" % p.returncode
-		return h.digest().encode('hex')
+		return h.digest().hex()
 
 	def tag_id(self, commit, tag_name):
 		p = self.command(['tag', tag_name, commit])
@@ -42,11 +42,11 @@ class Repo:
 
 	def get_commit_id(self, ref):
 		p = self.command(['rev-parse', ref, '--'], PIPE, DEVNULL)
-		commit = p.stdout.readline().rstrip('\n')
+		commit = p.stdout.readline().rstrip(b'\n')
 		p.wait()
 		if p.returncode != 0:
 			return None
-		return commit
+		return commit.decode()
 
 	def get_branch_id(self, branch):
 		return self.get_commit_id('refs/heads/%s' % branch)
@@ -68,16 +68,16 @@ class Commit:
 		self.parents = parents
 
 	def __read_user(self, f):
-		name = f.readline().rstrip('\n')
-		email = f.readline().rstrip('\n')
-		date = f.readline().rstrip('\n')
+		name = f.readline().rstrip(b'\n')
+		email = f.readline().rstrip(b'\n')
+		date = f.readline().rstrip(b'\n')
 		return CommitUser(name, email, date)
 
 	def __cache_commit_data(self):
 		p = repo.command(['log', '--pretty=format:%an\n%ae\n%aI\n%cn\n%ce\n%cI\n%H\n%B', '%s^!' % self.commit_id, '--'], PIPE)
 		self.author = self.__read_user(p.stdout)
 		self.committer = self.__read_user(p.stdout)
-		h = p.stdout.readline().rstrip('\n')
+		h = p.stdout.readline().decode().rstrip('\n')
 		self.comment = p.stdout.read()
 		assert h == self.commit_id, "Safety check failed, hash readed mismatch %s != %s" % (h , self.commit_id)
 		p.wait()
@@ -133,7 +133,7 @@ class FinalCommit(Commit):
 			for parent in commit.parents:
 				assert(isinstance(parent.final, FinalCommit))
 				parents[parent.final] = True
-		parents = parents.keys()
+		parents = list(parents.keys())
 		for parent in parents:
 			parent.solve()
 			if not parent.same_comments:
@@ -157,7 +157,7 @@ class FinalCommit(Commit):
 
 		# FIXME FINISH
 		if len(parents) != 1:
-			print parents
+			print(parents)
 
 		# simple case, just one parent
 		if len(parents) == 1:
@@ -247,7 +247,7 @@ class Commits:
 def commit_ids_to(branch_from, branch_to):
 	p = repo.command(['log', '--pretty=format:%H %P', '%s..%s' % (branch_from, branch_to)], PIPE)
 	for commit in p.stdout:
-		commit_ids = commit.rstrip('\n').split(' ')
+		commit_ids = commit.decode().rstrip('\n').split(' ')
 		yield commits.add(commit_ids[0], commit_ids[1:])
 	p.wait()
 	assert(p.returncode == 0)
@@ -256,13 +256,13 @@ def check_branch_exists(name):
 	assert repo.get_branch_id(name) is not None, "Branch '%s' not found" % name
 
 def usage():
-	print """Usage: Git_merge [OPTION]... <branch_old> <branch_new>
+	print("""Usage: Git_merge [OPTION]... <branch_old> <branch_new>
 Remove duplicate content commits from the two branches
 
   --git-dir=DIR  specify git directory
   -d             enable debug output
   -h, --help     display this output and exit
-"""
+""")
 
 commits = Commits()
 
@@ -321,7 +321,7 @@ to_commits = list(commit_ids_to(commit_from.commit_id, commit_to.commit_id))
 
 for commit in commits.content_hashes.values():
 	if len(commit.commits) > 1:
-		print commit.commits
+		print(commit.commits)
 		assert False, "Found duplicate commit in output branches, something went wrong"
 
 # reset branches if all content are the same (even comments)
