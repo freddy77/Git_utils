@@ -36,7 +36,7 @@ content and reuse available commits if possible. The script will prefer
 to reuse commits in the *branch_new* as should be the most updated.
 
 The script wants to be robust and instead of changing your branches add
-two new tags named *branch_old*`_merged` *branch_new*`_merged. This to
+two new tags named *branch_old*`_merged` *branch_new*`_merged`. This to
 make sure you don't lose your work.
 
 Currently todo/problems:
