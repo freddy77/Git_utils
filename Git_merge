@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import sys
 import os
@@ -51,6 +51,11 @@ class Repo:
 	def get_branch_id(self, branch):
 		return self.get_commit_id('refs/heads/%s' % branch)
 
+	def reset_to(self, commit_id, branch):
+		p = self.command(['update-ref', 'refs/heads/%s' % branch, commit_id])
+		p.wait()
+		assert(p.returncode == 0)
+
 class CommitUser:
 	def __init__(self, name, email, date):
 		self.name = name
@@ -99,6 +104,7 @@ class FinalCommit(Commit):
 		self.content_hash = commit.content_hash
 		self.parents = []
 		self.commits = [commit]
+		self.same_comments = True
 
 	def add_commit(self, commit):
 		self.commits.append(commit)
@@ -130,6 +136,8 @@ class FinalCommit(Commit):
 		parents = parents.keys()
 		for parent in parents:
 			parent.solve()
+			if not parent.same_comments:
+				self.same_comments = False
 			assert(parent.commit_id)
 		self.parents = parents
 
@@ -139,6 +147,13 @@ class FinalCommit(Commit):
 			return
 
 		self.dump()
+
+		# check if all comments are the same
+		first_comment = self.commits[0].comment
+		for commit in self.commits:
+			if commit.comment != first_comment:
+				self.same_comments = False
+				break
 
 		# FIXME FINISH
 		if len(parents) != 1:
@@ -252,8 +267,9 @@ Remove duplicate content commits from the two branches
 commits = Commits()
 
 git_dir = None
+reset_on_safe = False
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "hd", ["help", "git-dir="])
+	opts, args = getopt.getopt(sys.argv[1:], "hd", ["help", "git-dir=", "safe"])
 except getopt.GetoptError:
 	usage()
 	sys.exit(2)
@@ -266,6 +282,8 @@ for opt, arg in opts:
 		debug = debug_enabled
 	elif opt == '--git-dir':
 		git_dir = arg
+	elif opt == '--safe':
+		reset_on_safe = True
 
 if len(args) < 2:
 	usage()
@@ -286,24 +304,30 @@ to_id = repo.get_branch_id(branch_to)
 from_commits = list(commit_ids_to(branch_to, branch_from))
 to_commits = list(commit_ids_to(branch_from, branch_to))
 
-commit = commits.get_final(from_id)
-commit.solve()
-repo.tag_id(commit.commit_id, branch_from + '_merged')
+commit_from = commits.get_final(from_id)
+commit_from.solve()
+same_comments = commit_from.same_comments
 
-commit = commits.get_final(to_id)
-commit.solve()
-repo.tag_id(commit.commit_id, branch_to + '_merged')
+commit_to = commits.get_final(to_id)
+commit_to.solve()
+if not commit_to.same_comments:
+	same_comments = False
 
 # last check, there should be no 2 commit with same hash
 del commits
 commits = Commits()
-branch_from += '_merged'
-branch_to += '_merged'
-from_commits = list(commit_ids_to(branch_to, branch_from))
-to_commits = list(commit_ids_to(branch_from, branch_to))
+from_commits = list(commit_ids_to(commit_to.commit_id, commit_from.commit_id))
+to_commits = list(commit_ids_to(commit_from.commit_id, commit_to.commit_id))
 
 for commit in commits.content_hashes.values():
 	if len(commit.commits) > 1:
 		print commit.commits
 		assert False, "Found duplicate commit in output branches, something went wrong"
 
+# reset branches if all content are the same (even comments)
+if reset_on_safe and same_comments:
+	repo.reset_to(commit_from.commit_id, branch_from)
+	repo.reset_to(commit_to.commit_id, branch_to)
+else:
+	repo.tag_id(commit_from.commit_id, branch_from + '_merged')
+	repo.tag_id(commit_to.commit_id, branch_to + '_merged')
