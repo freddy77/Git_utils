@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# vim:ts=4:sw=4:expandtab:
+
 # script to help rebase trees of branches
 # Git configuration
 # -----------------
@@ -109,6 +111,7 @@ try_compile() {
     echo "processed:$processed"
     echo "failed:$failed_compile"
     echo "compiling $branch ..."
+    rm -f compile_err_$branch.txt
     if test $COMPILE = full; then
         for commit in $(git rev-list ${REBASE_TO}..$branch --reverse); do
             echo "checking branch $branch commit $commit"
@@ -190,6 +193,7 @@ do
     git checkout "$branch"
     if git rebase ${REBASE_TO}; then
         post_process "$branch"
+        set -e
         # if there is a remote on the git remote specified push to it
         if branch_need_push "$branch"; then
             echo "Pushing branch $branch ..."
